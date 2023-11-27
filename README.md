@@ -99,7 +99,23 @@ Single Scale Inference on VGA resolution（max side is equal to 640 and scale).
 | yolov5m     | 95.30 | 93.76  | 85.28 | 18.146   | 21.063    | Link: https://pan.baidu.com/s/1oePvd2K6R4-gT0g7EERmdQ  pwd: jmtk, https://drive.google.com/file/d/1Sx-KEGXSxvPMS35JhzQKeRBiqC98VDDI |
 | yolov5l     | 95.78 | 94.30  | 86.13 | 41.607   | 46.627    | Link: https://pan.baidu.com/s/11l4qSEgA2-c7e8lpRt8iFw  pwd: 0mq7, https://drive.google.com/file/d/16F-3AjdQBn9p3nMhStUxfDNAE_1bOF_r |
 
-## Data preparation
+## Easy usage
+
+### Cloning git repository:
+```shell
+git clone https://github.com/msinamsina/yolov5-face.git
+cd yolov5-face
+```
+
+### Training
+For training the following command should be run. if this command execute for first time it will download **widerface** dataset automatically.
+```shell
+CUDA_VISIBLE_DEVICES="0" python3 train.py --data data/widerface.yaml --cfg models/yolov5s.yaml --weights 'pretrained models' --batch-size 32
+```
+
+## Original usage
+
+### Data preparation
 
 1. Download WIDERFace datasets.
 2. Download annotation files from [google drive](https://drive.google.com/file/d/1tU_IjyOwGQfGNUvZGwWWM4SwxKp2PUQ8/view?usp=sharing).
@@ -112,7 +128,7 @@ python3 val2yolo.py  /path/to/original/widerface [/path/to/save/widerface/val]
 
 
 
-## Training
+### Training
 
 ```shell
 CUDA_VISIBLE_DEVICES="0,1,2,3" python3 train.py --data data/widerface.yaml --cfg models/yolov5s.yaml --weights 'pretrained models'
@@ -120,7 +136,7 @@ CUDA_VISIBLE_DEVICES="0,1,2,3" python3 train.py --data data/widerface.yaml --cfg
 
 
 
-## WIDERFace Evaluation
+### WIDERFace Evaluation
 
 ```shell
 python3 test_widerface.py --weights 'your test model' --img-size 640
