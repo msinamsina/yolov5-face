@@ -125,8 +125,8 @@ if __name__ == '__main__':
     parser.add_argument('--name', default='exp', help='save results to project/name')
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
     parser.add_argument('--save_folder', default='./widerface_evaluate/widerface_txt/', type=str, help='Dir to save txt results')
-    parser.add_argument('--dataset_folder', default='../WiderFace/val/images/', type=str, help='dataset path')
-    parser.add_argument('--folder_pict', default='/yolov5-face/data/widerface/val/wider_val.txt', type=str, help='folder_pict')
+    parser.add_argument('--dataset_folder', default='./dataset/val/images/ ', type=str, help='dataset path')
+    parser.add_argument('--folder_pict', default='./data/wider_val.txt', type=str, help='folder_pict')
     opt = parser.parse_args()
     print(opt)
 
@@ -145,7 +145,8 @@ if __name__ == '__main__':
         # testing dataset
         testset_folder = opt.dataset_folder
 
-        for image_path in tqdm(glob.glob(os.path.join(testset_folder, '*'))):
+        for p in tqdm(pict_folder):
+            image_path = os.path.join(testset_folder, pict_folder[p], p)
             if image_path.endswith('.txt'):
                 continue
             img0 = cv2.imread(image_path)  # BGR
@@ -161,7 +162,7 @@ if __name__ == '__main__':
             if not os.path.isdir(dirname):
                 os.makedirs(dirname)
             with open(save_name, "w") as fd:
-                file_name = os.path.basename(save_name)[:-4] + "\n"            
+                file_name = os.path.basename(save_name)[:-4] + "\n"
                 bboxs_num = str(len(boxes)) + "\n"
                 fd.write(file_name)
                 fd.write(bboxs_num)

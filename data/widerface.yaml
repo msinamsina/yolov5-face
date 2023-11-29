@@ -1,21 +1,19 @@
-# PASCAL VOC dataset http://host.robots.ox.ac.uk/pascal/VOC/
-# Train command: python train.py --data voc.yaml
-# Default dataset location is next to /yolov5:
-#   /parent_folder
-#     /VOC
-#     /yolov5
-
+# WIDER Face dataset http://shuoyang1213.me/WIDERFACE/index.html
+# Train command: python train.py --data widerface.yaml
+# Default dataset location is next to yolov5-face/datasets folder:
 
 # download command/URL (optional)
+# this script downloads the dataset from the internet if it's not found
+# in the dataset folder and extracts it to the dataset folder then converts
+# the dataset to YOLOv5 format in the yolov5-face/data/widerface/ folder.
 download: bash data/scripts/get_widerface.sh
 
 # train and val data as 1) directory: path/images/, 2) file: path/images.txt, or 3) list: [path1/images/, path2/images/]
 train: ./data/widerface/train  # 16551 images
 val: ./data/widerface/val  # 16551 images
-#val: /ssd_1t/derron/yolov5-face/data/widerface/train/  # 4952 images
 
 # number of classes
 nc: 1
 
 # class names
-names: [ 'face']
+names: ['face']
