@@ -126,7 +126,7 @@ if __name__ == '__main__':
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
     parser.add_argument('--save_folder', default='./widerface_evaluate/widerface_txt/', type=str, help='Dir to save txt results')
     parser.add_argument('--dataset_folder', default='../WiderFace/val/images/', type=str, help='dataset path')
-    parser.add_argument('--folder_pict', default='/yolov5-face/data/widerface/val/wider_val.txt', type=str, help='folder_pict')
+    parser.add_argument('--folder_pict', default='/yolov5-face/data/wider_val.txt', type=str, help='folder_pict')
     opt = parser.parse_args()
     print(opt)
 
