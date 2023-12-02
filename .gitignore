@@ -3,3 +3,5 @@
 dataset/
 runs/
 widerface_evaluate/widerface_txt/
+__pycache__/
+data/widerface/
