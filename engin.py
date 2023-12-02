@@ -359,7 +359,7 @@ class Trainer:
                                         include=['yaml', 'nc', 'hyp', 'gr', 'names', 'stride', 'class_weights'])
                     final_epoch = epoch + 1 == epochs
                     if not self.opt.notest or final_epoch:  # Calculate mAP
-                        results, maps, times = test.test(self.opt.data,
+                        self.results, maps, times = test.test(self.opt.data,
                                                          batch_size=self.total_batch_size,
                                                          imgsz=self.test_img_size,
                                                          model=self.ema.ema,
@@ -372,7 +372,7 @@ class Trainer:
                     # Write
                     with open(self.results_file, 'a') as f:
                         f.write(
-                            s + '%10.4g' * 7 % results + '\n')  # P, R, mAP@.5, mAP@.5-.95, val_loss(box, obj, cls)
+                            s + '%10.4g' * 7 % self.results + '\n')  # P, R, mAP@.5, mAP@.5-.95, val_loss(box, obj, cls)
                     if len(self.opt.name) and self.opt.bucket:
                         os.system(
                             f'gsutil cp {self.results_file} gs://{self.opt.bucket}/results/results{self.opt.name}.txt')
@@ -383,7 +383,7 @@ class Trainer:
                             'metrics/precision', 'metrics/recall', 'metrics/mAP_0.5', 'metrics/mAP_0.5:0.95',
                             'val/box_loss', 'val/obj_loss', 'val/cls_loss',  # val loss
                             'x/lr0', 'x/lr1', 'x/lr2']  # params
-                    for x, tag in zip(list(self.mean_loss[:-1]) + list(results) + lr, tags):
+                    for x, tag in zip(list(self.mean_loss[:-1]) + list(self.results) + lr, tags):
                         if self.tb_writer:
                             self.tb_writer.add_scalar(tag, x, epoch)  # tensorboard
                         if wandb:
@@ -391,7 +391,7 @@ class Trainer:
 
                     # Update best mAP
                     fi = fitness(
-                        np.array(results).reshape(1, -1))  # weighted combination of [P, R, mAP@.5, mAP@.5-.95]
+                        np.array(self.results).reshape(1, -1))  # weighted combination of [P, R, mAP@.5, mAP@.5-.95]
                     if fi > self.best_fitness:
                         best_fitness = fi
 
@@ -431,24 +431,24 @@ class Trainer:
 
                 if self.opt.data.endswith('coco.yaml') and self.nc == 80:  # if COCO
                     for conf, iou, save_json in ([0.25, 0.45, False], [0.001, 0.65, True]):  # speed, mAP tests
-                        results, _, _ = test.test(self.opt.data,
-                                                  batch_size=self.total_batch_size,
-                                                  imgsz=self.test_img_size,
-                                                  conf_thres=conf,
-                                                  iou_thres=iou,
-                                                  model=attempt_load(final, self.device).half(),
-                                                  single_cls=self.opt.single_cls,
-                                                  dataloader=self.test_loader,
-                                                  save_dir=self.save_dir,
-                                                  save_json=save_json,
-                                                  plots=False)
+                        self.results, _, _ = test.test(self.opt.data,
+                                                       batch_size=self.total_batch_size,
+                                                       imgsz=self.test_img_size,
+                                                       conf_thres=conf,
+                                                       iou_thres=iou,
+                                                       model=attempt_load(final, self.device).half(),
+                                                       single_cls=self.opt.single_cls,
+                                                       dataloader=self.test_loader,
+                                                       save_dir=self.save_dir,
+                                                       save_json=save_json,
+                                                       plots=False)
 
             else:
                 dist.destroy_process_group()
 
             self.wandb.run.finish() if self.wandb and self.wandb.run else None
             torch.cuda.empty_cache()
-            return results
+            return self.results
 
 
 if __name__ == '__main__':
