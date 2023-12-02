@@ -123,6 +123,8 @@ class Detect(nn.Module):
         grid = torch.stack((xv, yv), 2).expand((1, self.na, ny, nx, 2)).float()
         anchor_grid = (self.anchors[i].clone() * self.stride[i]).view((1, self.na, 1, 1, 2)).expand((1, self.na, ny, nx, 2)).float()
         return grid, anchor_grid
+
+
 class Model(nn.Module):
     def __init__(self, cfg='yolov5s.yaml', ch=3, nc=None):  # model, input channels, number of classes
         super(Model, self).__init__()
@@ -342,4 +344,4 @@ if __name__ == '__main__':
     print(model)
     flops, params = profile(model, inputs=(input, ))
     flops, params = clever_format([flops, params], "%.3f")
-    print('Flops:', flops, ',Params:' ,params)
+    print('Flops:', flops, ',Params:', params)
