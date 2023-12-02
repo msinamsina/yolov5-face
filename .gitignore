@@ -1,2 +1,5 @@
 */__pycache__
 .idea
+dataset/
+runs/
+widerface_evaluate/widerface_txt/
