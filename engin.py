@@ -341,114 +341,117 @@ class Trainer:
 
                 # Print
                 if self.rank in [-1, 0]:
-                    mloss = (self.mean_loss * i + loss_items) / (i + 1)  # update mean losses
+                    self.mean_loss = (self.mean_loss * i + loss_items) / (i + 1)  # update mean losses
                     mem = '%.3gG' % (torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0)  # (GB)
                     s = ('%10s' * 2 + '%10.4g' * 7) % (
-                        '%g/%g' % (epoch, self.epochs - 1), mem, *mloss, targets.shape[0], imgs.shape[-1])
+                        '%g/%g' % (epoch, self.epochs - 1), mem, *self.mean_loss, targets.shape[0], imgs.shape[-1])
                     pbar.set_description(s)
                 # end batch -----------------------------------------------------------------------------------------
-                    # Scheduler
-                lr = [x['lr'] for x in self.optimizer.param_groups]  # for tensorboard
-                self.scheduler.step()
+                # Scheduler
+            # end epoch ----------------------------------------------------------------------------------------------------
 
-                # DDP process 0 or single-GPU
-                if self.rank in [-1, 0] and epoch > 20:
-                    # mAP
-                    if self.ema:
-                        self.ema.update_attr(self.model,
-                                        include=['yaml', 'nc', 'hyp', 'gr', 'names', 'stride', 'class_weights'])
-                    final_epoch = epoch + 1 == epochs
-                    if not self.opt.notest or final_epoch:  # Calculate mAP
-                        self.results, maps, times = test.test(self.opt.data,
-                                                         batch_size=self.total_batch_size,
-                                                         imgsz=self.test_img_size,
-                                                         model=self.ema.ema,
-                                                         single_cls=self.opt.single_cls,
-                                                         dataloader=self.test_loader,
-                                                         save_dir=self.save_dir,
-                                                         plots=False,
-                                                         log_imgs=self.opt.log_imgs if wandb else 0)
+            # Scheduler
+            lr = [x['lr'] for x in self.optimizer.param_groups]  # for tensorboard
+            self.scheduler.step()
 
-                    # Write
-                    with open(self.results_file, 'a') as f:
-                        f.write(
-                            s + '%10.4g' * 7 % self.results + '\n')  # P, R, mAP@.5, mAP@.5-.95, val_loss(box, obj, cls)
-                    if len(self.opt.name) and self.opt.bucket:
-                        os.system(
-                            f'gsutil cp {self.results_file} gs://{self.opt.bucket}/results/results{self.opt.name}.txt')
-                        # sync results to cloud
+            # DDP process 0 or single-GPU
+            if self.rank in [-1, 0] and epoch > 20:
+                # mAP
+                if self.ema:
+                    self.ema.update_attr(self.model,
+                                    include=['yaml', 'nc', 'hyp', 'gr', 'names', 'stride', 'class_weights'])
+                final_epoch = epoch + 1 == epochs
+                if not self.opt.notest or final_epoch:  # Calculate mAP
+                    self.results, maps, times = test.test(self.opt.data,
+                                                     batch_size=self.total_batch_size,
+                                                     imgsz=self.test_img_size,
+                                                     model=self.ema.ema,
+                                                     single_cls=self.opt.single_cls,
+                                                     dataloader=self.test_loader,
+                                                     save_dir=self.save_dir,
+                                                     plots=False,
+                                                     log_imgs=self.opt.log_imgs if wandb else 0)
 
-                    # Log
-                    tags = ['train/box_loss', 'train/obj_loss', 'train/cls_loss',  # train loss
-                            'metrics/precision', 'metrics/recall', 'metrics/mAP_0.5', 'metrics/mAP_0.5:0.95',
-                            'val/box_loss', 'val/obj_loss', 'val/cls_loss',  # val loss
-                            'x/lr0', 'x/lr1', 'x/lr2']  # params
-                    for x, tag in zip(list(self.mean_loss[:-1]) + list(self.results) + lr, tags):
-                        if self.tb_writer:
-                            self.tb_writer.add_scalar(tag, x, epoch)  # tensorboard
-                        if wandb:
-                            wandb.log({tag: x})  # W&B
+                # Write
+                with open(self.results_file, 'a') as f:
+                    f.write(
+                        s + '%10.4g' * 7 % self.results + '\n')  # P, R, mAP@.5, mAP@.5-.95, val_loss(box, obj, cls)
+                if len(self.opt.name) and self.opt.bucket:
+                    os.system(
+                        f'gsutil cp {self.results_file} gs://{self.opt.bucket}/results/results{self.opt.name}.txt')
+                    # sync results to cloud
 
-                    # Update best mAP
-                    fi = fitness(
-                        np.array(self.results).reshape(1, -1))  # weighted combination of [P, R, mAP@.5, mAP@.5-.95]
-                    if fi > self.best_fitness:
-                        best_fitness = fi
+                # Log
+                tags = ['train/box_loss', 'train/obj_loss', 'train/cls_loss',  # train loss
+                        'metrics/precision', 'metrics/recall', 'metrics/mAP_0.5', 'metrics/mAP_0.5:0.95',
+                        'val/box_loss', 'val/obj_loss', 'val/cls_loss',  # val loss
+                        'x/lr0', 'x/lr1', 'x/lr2']  # params
+                for x, tag in zip(list(self.mean_loss[:-1]) + list(self.results) + lr, tags):
+                    if self.tb_writer:
+                        self.tb_writer.add_scalar(tag, x, epoch)  # tensorboard
+                    if wandb:
+                        wandb.log({tag: x})  # W&B
 
-                    # Save model
-                    save = (not self.opt.nameopt.nosave) or (final_epoch and not self.opt.nameopt.evolve)
-                    if save:
-                        with open(self.opt.nameresults_file, 'r') as f:  # create checkpoint
-                            ckpt = {'epoch': epoch,
-                                    'best_fitness': self.opt.namebest_fitness,
-                                    'training_results': f.read(),
-                                    'model': self.opt.nameema.ema,
-                                    'optimizer': None if final_epoch else self.optimizer.state_dict(),
-                                    'wandb_id': self.wandb_run.id if wandb else None}
+                # Update best mAP
+                fi = fitness(
+                    np.array(self.results).reshape(1, -1))  # weighted combination of [P, R, mAP@.5, mAP@.5-.95]
+                if fi > self.best_fitness:
+                    best_fitness = fi
 
-                        # Save last, best and delete
-                        torch.save(ckpt, self.last)
-                        if self.best_fitness == fi:
-                            torch.save(ckpt, self.best)
-                        del ckpt
-                # end epoch ----------------------------------------------------------------------------------------------------
-            # end training
+                # Save model
+                save = (not self.opt.nameopt.nosave) or (final_epoch and not self.opt.nameopt.evolve)
+                if save:
+                    with open(self.opt.nameresults_file, 'r') as f:  # create checkpoint
+                        ckpt = {'epoch': epoch,
+                                'best_fitness': self.opt.namebest_fitness,
+                                'training_results': f.read(),
+                                'model': self.opt.nameema.ema,
+                                'optimizer': None if final_epoch else self.optimizer.state_dict(),
+                                'wandb_id': self.wandb_run.id if wandb else None}
 
-            if self.rank in [-1, 0]:
-                # Strip optimizers
-                final = self.best if self.best.exists() else self.last  # final model
-                for f in [self.last, self.best]:
-                    if f.exists():
-                        strip_optimizer(f)  # strip optimizers
-                if self.opt.bucket:
-                    os.system(f'gsutil cp {final} gs://{self.opt.bucket}/weights')  # upload
+                    # Save last, best and delete
+                    torch.save(ckpt, self.last)
+                    if self.best_fitness == fi:
+                        torch.save(ckpt, self.best)
+                    del ckpt
+            # end epoch ----------------------------------------------------------------------------------------------------
+        # end training
+
+        if self.rank in [-1, 0]:
+            # Strip optimizers
+            final = self.best if self.best.exists() else self.last  # final model
+            for f in [self.last, self.best]:
+                if f.exists():
+                    strip_optimizer(f)  # strip optimizers
+            if self.opt.bucket:
+                os.system(f'gsutil cp {final} gs://{self.opt.bucket}/weights')  # upload
 
 
-                # Test best.pt
-                logger.info(
-                    f'{epoch - self.start_epoch + 1} epochs completed in'
-                    f' {(time.time() - self.start_time) / 3600} hours.\n')
+            # Test best.pt
+            logger.info(
+                f'{epoch - self.start_epoch + 1} epochs completed in'
+                f' {(time.time() - self.start_time) / 3600} hours.\n')
 
-                if self.opt.data.endswith('coco.yaml') and self.nc == 80:  # if COCO
-                    for conf, iou, save_json in ([0.25, 0.45, False], [0.001, 0.65, True]):  # speed, mAP tests
-                        self.results, _, _ = test.test(self.opt.data,
-                                                       batch_size=self.total_batch_size,
-                                                       imgsz=self.test_img_size,
-                                                       conf_thres=conf,
-                                                       iou_thres=iou,
-                                                       model=attempt_load(final, self.device).half(),
-                                                       single_cls=self.opt.single_cls,
-                                                       dataloader=self.test_loader,
-                                                       save_dir=self.save_dir,
-                                                       save_json=save_json,
-                                                       plots=False)
+            if self.opt.data.endswith('coco.yaml') and self.nc == 80:  # if COCO
+                for conf, iou, save_json in ([0.25, 0.45, False], [0.001, 0.65, True]):  # speed, mAP tests
+                    self.results, _, _ = test.test(self.opt.data,
+                                                   batch_size=self.total_batch_size,
+                                                   imgsz=self.test_img_size,
+                                                   conf_thres=conf,
+                                                   iou_thres=iou,
+                                                   model=attempt_load(final, self.device).half(),
+                                                   single_cls=self.opt.single_cls,
+                                                   dataloader=self.test_loader,
+                                                   save_dir=self.save_dir,
+                                                   save_json=save_json,
+                                                   plots=False)
 
-            else:
-                dist.destroy_process_group()
+        else:
+            dist.destroy_process_group()
 
-            self.wandb.run.finish() if self.wandb and self.wandb.run else None
-            torch.cuda.empty_cache()
-            return self.results
+        self.wandb.run.finish() if self.wandb and self.wandb.run else None
+        torch.cuda.empty_cache()
+        return self.results
 
 
 if __name__ == '__main__':
