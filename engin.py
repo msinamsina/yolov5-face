@@ -399,13 +399,13 @@ class Trainer:
                     best_fitness = fi
 
                 # Save model
-                save = (not self.opt.nameopt.nosave) or (final_epoch and not self.opt.nameopt.evolve)
+                save = (not self.opt.nosave) or (final_epoch and not self.opt.evolve)
                 if save:
-                    with open(self.opt.nameresults_file, 'r') as f:  # create checkpoint
+                    with open(self.results_file, 'r') as f:  # create checkpoint
                         ckpt = {'epoch': epoch,
-                                'best_fitness': self.opt.namebest_fitness,
+                                'best_fitness': self.best_fitness,
                                 'training_results': f.read(),
-                                'model': self.opt.nameema.ema,
+                                'model': self.ema.ema,
                                 'optimizer': None if final_epoch else self.optimizer.state_dict(),
                                 'wandb_id': self.wandb_run.id if wandb else None}
 
